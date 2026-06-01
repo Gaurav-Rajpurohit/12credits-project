@@ -1,0 +1,15 @@
+# Go binaries
+microservices/service
+service
+
+# Logs
+*.log
+nginx/logs/
+
+# IDE and OS files
+.DS_Store
+.vscode/
+.idea/
+
+# Ansible scratch
+*.retry
