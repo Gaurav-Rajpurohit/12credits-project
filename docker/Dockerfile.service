@@ -1,0 +1,29 @@
+# Stage 1: Compile the binary in Go environment
+FROM golang:1.20-alpine AS builder
+
+WORKDIR /app
+
+# Copy module description
+COPY go.mod ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build argument to choose which microservice to compile
+ARG SERVICE_NAME
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o service ./${SERVICE_NAME}/main.go
+
+# Stage 2: Run environment using Alpine
+FROM alpine:latest
+
+# Install curl for internal container health diagnostics
+RUN apk --no-cache add curl
+
+WORKDIR /app
+
+# Copy the compiled static binary from builder stage
+COPY --from=builder /app/service .
+
+# Run the compiled service binary
+CMD ["./service"]
