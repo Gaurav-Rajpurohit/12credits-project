@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  notification-green:
+    build:
+      context: ../microservices
+      dockerfile: ../docker/Dockerfile.service
+      args:
+        SERVICE_NAME: notification
+    container_name: notification-green
+    environment:
+      - PORT=8084
+    networks:
+      - green-net
+    restart: always
+
+  txn-green:
+    build:
+      context: ../microservices
+      dockerfile: ../docker/Dockerfile.service
+      args:
+        SERVICE_NAME: transaction
+    container_name: txn-green
+    environment:
+      - PORT=8083
+      - NOTIFICATION_SERVICE_URL=http://notification-green:8084
+    networks:
+      - green-net
+    depends_on:
+      - notification-green
+    restart: always
+
+  account-green:
+    build:
+      context: ../microservices
+      dockerfile: ../docker/Dockerfile.service
+      args:
+        SERVICE_NAME: account
+    container_name: account-green
+    environment:
+      - PORT=8082
+    networks:
+      - green-net
+    restart: always
+
+  auth-green:
+    build:
+      context: ../microservices
+      dockerfile: ../docker/Dockerfile.service
+      args:
+        SERVICE_NAME: auth
+    container_name: auth-green
+    environment:
+      - PORT=8081
+    networks:
+      - green-net
+    restart: always
+
+  gateway-green:
+    build:
+      context: ../microservices
+      dockerfile: ../docker/Dockerfile.service
+      args:
+        SERVICE_NAME: gateway
+    container_name: gateway-green
+    environment:
+      - PORT=8080
+      - AUTH_SERVICE_URL=http://auth-green:8081
+      - ACCOUNT_SERVICE_URL=http://account-green:8082
+      - TRANSACTION_SERVICE_URL=http://txn-green:8083
+      - NOTIFICATION_SERVICE_URL=http://notification-green:8084
+    ports:
+      - "8090:8080"
+    networks:
+      - green-net
+    depends_on:
+      - auth-green
+      - account-green
+      - txn-green
+    restart: always
+
+networks:
+  green-net:
+    driver: bridge

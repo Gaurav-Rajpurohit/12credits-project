@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  notification-blue:
+    build:
+      context: ../microservices
+      dockerfile: ../docker/Dockerfile.service
+      args:
+        SERVICE_NAME: notification
+    container_name: notification-blue
+    environment:
+      - PORT=8084
+    networks:
+      - blue-net
+    restart: always
+
+  txn-blue:
+    build:
+      context: ../microservices
+      dockerfile: ../docker/Dockerfile.service
+      args:
+        SERVICE_NAME: transaction
+    container_name: txn-blue
+    environment:
+      - PORT=8083
+      - NOTIFICATION_SERVICE_URL=http://notification-blue:8084
+    networks:
+      - blue-net
+    depends_on:
+      - notification-blue
+    restart: always
+
+  account-blue:
+    build:
+      context: ../microservices
+      dockerfile: ../docker/Dockerfile.service
+      args:
+        SERVICE_NAME: account
+    container_name: account-blue
+    environment:
+      - PORT=8082
+    networks:
+      - blue-net
+    restart: always
+
+  auth-blue:
+    build:
+      context: ../microservices
+      dockerfile: ../docker/Dockerfile.service
+      args:
+        SERVICE_NAME: auth
+    container_name: auth-blue
+    environment:
+      - PORT=8081
+    networks:
+      - blue-net
+    restart: always
+
+  gateway-blue:
+    build:
+      context: ../microservices
+      dockerfile: ../docker/Dockerfile.service
+      args:
+        SERVICE_NAME: gateway
+    container_name: gateway-blue
+    environment:
+      - PORT=8080
+      - AUTH_SERVICE_URL=http://auth-blue:8081
+      - ACCOUNT_SERVICE_URL=http://account-blue:8082
+      - TRANSACTION_SERVICE_URL=http://txn-blue:8083
+      - NOTIFICATION_SERVICE_URL=http://notification-blue:8084
+    ports:
+      - "8080:8080"
+    networks:
+      - blue-net
+    depends_on:
+      - auth-blue
+      - account-blue
+      - txn-blue
+    restart: always
+
+networks:
+  blue-net:
+    driver: bridge
