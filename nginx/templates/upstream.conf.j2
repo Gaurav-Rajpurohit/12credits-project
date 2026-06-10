@@ -1,0 +1,6 @@
+# Declarative upstream configuration managed by Ansible
+# Active Environment: {{ active_env | upper }}
+upstream active_backend {
+    server host.docker.internal:{{ active_port }};
+    keepalive 32;
+}
