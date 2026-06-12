@@ -1,0 +1,20 @@
+# Project Paths
+project_root: "/home/gaurav176/Desktop/project"
+docker_dir: "{{ project_root }}/docker"
+nginx_src_dir: "{{ project_root }}/nginx"
+
+# Port Mapping (Gateway Host Ports)
+blue_port: 8080
+green_port: 8090
+
+# Nginx Workspace Paths (mapped to Nginx Docker volume)
+nginx_conf_dest: "{{ nginx_src_dir }}/nginx.conf"
+nginx_upstream_dest: "{{ nginx_src_dir }}/conf.d/upstream.conf"
+
+# Health Check Settings
+health_check_retries: 15
+health_check_delay: 2
+health_check_timeout: 2
+
+# Deployment States
+# Ansible dynamically parses these states during runtime

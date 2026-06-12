@@ -1,0 +1,40 @@
+---
+- name: Check if Docker is installed
+  command: which docker
+  register: docker_check
+  ignore_errors: yes
+  changed_when: false
+
+- name: Fail if Docker is missing on the host
+  fail:
+    msg: "Docker is required on the host to run containerized microservices and Nginx!"
+  when: docker_check.rc != 0
+
+- name: Create local Nginx directory structure in workspace
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ nginx_src_dir }}/conf.d"
+    - "{{ nginx_src_dir }}/logs"
+
+- name: Check if baseline upstream config exists
+  stat:
+    path: "{{ nginx_upstream_dest }}"
+  register: base_upstream_stat
+
+- name: Write default bootstrap Nginx upstream configuration
+  template:
+    src: "{{ nginx_src_dir }}/templates/upstream.conf.j2"
+    dest: "{{ nginx_upstream_dest }}"
+    mode: "0644"
+  vars:
+    active_env: "blue"
+    active_port: "{{ blue_port }}"
+  when: not base_upstream_stat.stat.exists
+
+- name: Launch containerized Nginx reverse proxy
+  command: "docker compose -f docker-compose.nginx.yml up -d"
+  args:
+    chdir: "{{ docker_dir }}"
