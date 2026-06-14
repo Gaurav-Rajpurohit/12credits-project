@@ -1,0 +1,26 @@
+---
+- name: Wait for service startup grace period
+  pause:
+    seconds: 3
+
+- name: Poll target Gateway health check gate
+  uri:
+    url: "http://127.0.0.1:{{ target_port }}/health"
+    method: GET
+    status_code: 200
+    timeout: "{{ health_check_timeout }}"
+  register: health_response
+  until: health_response.status == 200
+  retries: "{{ health_check_retries }}"
+  delay: "{{ health_check_delay }}"
+  ignore_errors: yes
+
+- name: Log Gateway health response payload
+  debug:
+    var: health_response.json
+  when: health_response.status == 200
+
+- name: Fail deployment if target is unhealthy
+  fail:
+    msg: "Deployment failed: Target environment [{{ target_env | upper }}] on port {{ target_port }} is unhealthy!"
+  when: health_response.status != 200

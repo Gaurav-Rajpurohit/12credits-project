@@ -1,0 +1,36 @@
+---
+- name: Check if upstream config exists
+  stat:
+    path: "{{ nginx_upstream_dest }}"
+  register: upstream_stat
+
+- name: Read Nginx upstream configuration
+  command: cat "{{ nginx_upstream_dest }}"
+  register: upstream_content
+  when: upstream_stat.stat.exists
+  changed_when: false
+
+- name: Set facts for Blue as active (default or if config points to 8080)
+  set_fact:
+    active_env: "blue"
+    active_port: "{{ blue_port }}"
+    target_env: "green"
+    target_port: "{{ green_port }}"
+  when: not upstream_stat.stat.exists or (upstream_content.stdout is defined and "8080" in upstream_content.stdout)
+
+- name: Set facts for Green as active (if config points to 8090)
+  set_fact:
+    active_env: "green"
+    active_port: "{{ green_port }}"
+    target_env: "blue"
+    target_port: "{{ blue_port }}"
+  when: upstream_stat.stat.exists and (upstream_content.stdout is defined and "8090" in upstream_content.stdout)
+
+- name: Show targeting environment details
+  debug:
+    msg: "ACTIVE: [{{ active_env | upper }}] on port {{ active_port }} -> TARGETING: [{{ target_env | upper }}] on port {{ target_port }}"
+
+- name: Run docker compose build and startup for target environment
+  command: "docker compose -f docker-compose.{{ target_env }}.yml up -d --build"
+  args:
+    chdir: "{{ docker_dir }}"

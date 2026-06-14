@@ -1,0 +1,38 @@
+---
+- name: Standalone Health Check Diagnostics
+  hosts: webservers
+  vars_files:
+    - group_vars/all.yml
+  vars:
+    # Optional target port to limit search (e.g. 8080 or 8090)
+    check_port: ""
+  tasks:
+    - name: Diagnose Blue environment (Port 8080)
+      uri:
+        url: "http://127.0.0.1:{{ blue_port }}/health"
+        method: GET
+        status_code: 200
+        timeout: 2
+      register: blue_diag
+      ignore_errors: yes
+      when: check_port == "" or check_port == "8080"
+
+    - name: Report Blue Status
+      debug:
+        msg: "Environment BLUE [8080] is: {{ 'HEALTHY (UP)' if (blue_diag.status is defined and blue_diag.status == 200) else 'UNHEALTHY (DOWN)' }}"
+      when: check_port == "" or check_port == "8080"
+
+    - name: Diagnose Green environment (Port 8090)
+      uri:
+        url: "http://127.0.0.1:{{ green_port }}/health"
+        method: GET
+        status_code: 200
+        timeout: 2
+      register: green_diag
+      ignore_errors: yes
+      when: check_port == "" or check_port == "8090"
+
+    - name: Report Green Status
+      debug:
+        msg: "Environment GREEN [8090] is: {{ 'HEALTHY (UP)' if (green_diag.status is defined and green_diag.status == 200) else 'UNHEALTHY (DOWN)' }}"
+      when: check_port == "" or check_port == "8090"
