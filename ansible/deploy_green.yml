@@ -1,0 +1,35 @@
+---
+- name: Force Deploy Green Environment
+  hosts: webservers
+  vars_files:
+    - group_vars/all.yml
+  tasks:
+    - name: Force override target facts to Green
+      set_fact:
+        active_env: "blue"
+        active_port: "{{ blue_port }}"
+        target_env: "green"
+        target_port: "{{ green_port }}"
+
+    - name: Run deployment inside block
+      block:
+        - name: Setup system dependencies
+          import_role:
+            name: common
+
+        - name: Launch Green containers
+          command: "docker compose -f docker-compose.green.yml up -d --build"
+          args:
+            chdir: "{{ docker_dir }}"
+
+        - name: Verify health checks
+          import_role:
+            name: health_check
+
+        - name: Switch traffic and stop Blue containers
+          import_role:
+            name: traffic_switch
+
+      rescue:
+        - name: Run rollback
+          include_tasks: rollback_tasks.yml

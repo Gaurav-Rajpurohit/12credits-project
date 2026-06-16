@@ -1,0 +1,53 @@
+---
+- name: Backup current Nginx upstream configuration
+  copy:
+    src: "{{ nginx_upstream_dest }}"
+    dest: "{{ nginx_upstream_dest }}.bak"
+    mode: "0644"
+    remote_src: yes
+  ignore_errors: yes
+
+- name: Render Nginx upstream configuration pointing to new target environment
+  template:
+    src: "{{ nginx_src_dir }}/templates/upstream.conf.j2"
+    dest: "{{ nginx_upstream_dest }}"
+    mode: "0644"
+  vars:
+    active_env: "{{ target_env }}"
+    active_port: "{{ target_port }}"
+  register: upstream_rendered
+
+- name: Validate Nginx configuration syntax inside container
+  command: docker exec nginx-proxy nginx -t
+  register: nginx_syntax
+  ignore_errors: yes
+
+- name: Fail if Nginx syntax is invalid
+  fail:
+    msg: "Nginx configuration syntax check failed inside container!"
+  when: nginx_syntax.rc != 0
+
+- name: Reload Nginx inside container to apply traffic switch
+  command: docker exec nginx-proxy nginx -s reload
+  when: nginx_syntax.rc == 0
+
+- name: Perform post-switch smoke test on Nginx entrypoint (Port 8000)
+  uri:
+    url: "http://127.0.0.1:8000/health"
+    method: GET
+    status_code: 200
+  register: smoke_test
+  retries: 5
+  delay: 1
+  ignore_errors: yes
+
+- name: Fail if post-switch smoke test fails
+  fail:
+    msg: "Smoke test failed: User traffic routing is broken on port 8000!"
+  when: smoke_test.status != 200
+
+- name: Clean up old active environment containers (decommission)
+  command: "docker compose -f docker-compose.{{ active_env }}.yml down"
+  args:
+    chdir: "{{ docker_dir }}"
+  when: smoke_test.status == 200

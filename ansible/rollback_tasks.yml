@@ -1,0 +1,33 @@
+---
+- name: Check if backup Nginx upstream file exists
+  stat:
+    path: "{{ nginx_upstream_dest }}.bak"
+  register: backup_stat
+
+- name: Restore Nginx upstream configuration from backup
+  copy:
+    src: "{{ nginx_upstream_dest }}.bak"
+    dest: "{{ nginx_upstream_dest }}"
+    mode: "0644"
+    remote_src: yes
+  when: backup_stat.stat.exists
+
+- name: Validate restored Nginx configuration syntax inside container
+  command: docker exec nginx-proxy nginx -t
+  ignore_errors: yes
+  when: backup_stat.stat.exists
+
+- name: Reload Nginx inside container to restore original traffic
+  command: docker exec nginx-proxy nginx -s reload
+  when: backup_stat.stat.exists
+
+- name: Clean up and stop failed target environment containers
+  command: "docker compose -f docker-compose.{{ target_env }}.yml down"
+  args:
+    chdir: "{{ docker_dir }}"
+  ignore_errors: yes
+  when: target_env is defined
+
+- name: Notify rollback complete
+  debug:
+    msg: "AUTOMATIC ROLLBACK COMPLETE. The system has been restored to the stable {{ active_env | upper }} environment."

@@ -1,0 +1,35 @@
+---
+- name: Standalone Rollback Trigger
+  hosts: webservers
+  vars_files:
+    - group_vars/all.yml
+  tasks:
+    - name: Check if upstream configuration exists
+      stat:
+        path: "{{ nginx_upstream_dest }}"
+      register: upstream_stat
+
+    - name: Read current Nginx upstream config
+      command: cat "{{ nginx_upstream_dest }}"
+      register: upstream_content
+      when: upstream_stat.stat.exists
+      changed_when: false
+
+    - name: Set facts if Green is active (rollback to Blue)
+      set_fact:
+        active_env: "green"
+        active_port: "{{ green_port }}"
+        target_env: "blue"
+        target_port: "{{ blue_port }}"
+      when: upstream_stat.stat.exists and (upstream_content.stdout is defined and "8090" in upstream_content.stdout)
+
+    - name: Set facts if Blue is active (rollback to Green)
+      set_fact:
+        active_env: "blue"
+        active_port: "{{ blue_port }}"
+        target_env: "green"
+        target_port: "{{ green_port }}"
+      when: not upstream_stat.stat.exists or (upstream_content.stdout is defined and "8080" in upstream_content.stdout)
+
+    - name: Execute rollback tasks
+      include_tasks: rollback_tasks.yml

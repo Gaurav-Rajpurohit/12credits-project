@@ -1,0 +1,43 @@
+---
+- name: Force Nginx Traffic Switching
+  hosts: webservers
+  vars_files:
+    - group_vars/all.yml
+  vars:
+    # Target parameter (must be 'blue' or 'green')
+    target: "blue"
+  tasks:
+    - name: Validate input variable
+      fail:
+        msg: "Target variable must be either 'blue' or 'green'. Got: {{ target }}"
+      when: target != 'blue' and target != 'green'
+
+    - name: Evaluate target specifications
+      set_fact:
+        target_env: "{{ target }}"
+        target_port: "{{ blue_port if target == 'blue' else green_port }}"
+
+    - name: Output switch destination details
+      debug:
+        msg: "Forcing traffic redirection to environment [{{ target_env | upper }}] on port {{ target_port }}"
+
+    - name: Render target Nginx upstream config
+      template:
+        src: "{{ nginx_src_dir }}/templates/upstream.conf.j2"
+        dest: "{{ nginx_upstream_dest }}"
+        mode: "0644"
+      vars:
+        active_env: "{{ target_env }}"
+        active_port: "{{ target_port }}"
+
+    - name: Validate Nginx syntax inside container
+      command: docker exec nginx-proxy nginx -t
+      register: nginx_syntax
+
+    - name: Reload Nginx service inside container
+      command: docker exec nginx-proxy nginx -s reload
+      when: nginx_syntax.rc == 0
+
+    - name: Confirm Nginx status
+      debug:
+        msg: "Traffic successfully switched to [{{ target_env | upper }}]."

@@ -1,0 +1,34 @@
+---
+- name: Zero-Downtime Blue-Green Deployment Orchestrator
+  hosts: webservers
+  vars_files:
+    - group_vars/all.yml
+  tasks:
+    - name: Run deployment steps with auto-rollback capability
+      block:
+        - name: 1. Setup Host Dependencies (Docker, Compose, Nginx)
+          import_role:
+            name: common
+
+        - name: 2. Deploy Target Container Environment
+          import_role:
+            name: app_deploy
+
+        - name: 3. Execute Pre-Switch Health Gates
+          import_role:
+            name: health_check
+
+        - name: 4. Perform Traffic Switching and Clean Up Old Stack
+          import_role:
+            name: traffic_switch
+
+        - name: Deployment Completion
+          debug:
+            msg: "DEPLOYMENT SUCCESSFUL. Traffic successfully shifted from {{ active_env | upper }} to {{ target_env | upper }}."
+
+      rescue:
+        - name: Trigger Automatic Rollback
+          include_tasks: rollback_tasks.yml
+          vars:
+            # Propagate target environment details to rollback
+            failed_target_env: "{{ target_env | default('none') }}"
