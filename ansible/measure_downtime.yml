@@ -1,0 +1,25 @@
+---
+- name: Automate Blue-Green Downtime Measurement
+  hosts: webservers
+  vars_files:
+    - group_vars/all.yml
+  tasks:
+    - name: Check if tests directory exists
+      stat:
+        path: "{{ project_root }}/tests"
+      register: tests_dir
+
+    - name: Fail if tests directory is missing
+      fail:
+        msg: "Tests directory does not exist at {{ project_root }}/tests"
+      when: not tests_dir.stat.exists
+
+    - name: Execute benchmark script
+      shell: "./benchmark.sh"
+      args:
+        chdir: "{{ project_root }}/tests"
+      register: benchmark_output
+
+    - name: Print benchmark results
+      debug:
+        msg: "{{ benchmark_output.stdout_lines }}"
